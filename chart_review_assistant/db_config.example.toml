@@ -1,0 +1,18 @@
+# Copy this file to db_config.toml in the app data directory and fill in your site's values.
+# db_config.toml is distributed out of band (clinic share) and is never committed to the repo.
+
+[database]
+host = "your-mosaiq-server"
+port = 1433
+database = "your-database-name"
+
+# Authentication. Leave username and password commented out to use Windows authentication: the app
+# connects as the logged-in Windows user, and no credentials are stored (this is the default and
+# the recommended setup). Only uncomment and set them if your site has no Windows-auth access to
+# the database and instead issues a dedicated SQL Server login (a database username and password).
+# username = "your-db-user"
+# password = "your-db-password"
+
+# Server certificate validation. Default true accepts any server certificate (needed for a
+# self-signed one). Set false when the server has a certificate signed by a trusted CA.
+# trust_server_certificate = false

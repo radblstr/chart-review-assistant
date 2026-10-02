@@ -1,0 +1,101 @@
+{
+  "db_pull": {
+    "sites": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"SIT_ID\",\"type\":\"integer\"},{\"name\":\"Site_Name\",\"type\":\"string\",\"extDtype\":\"str\"},{\"name\":\"PCP_ID\",\"type\":\"integer\"},{\"name\":\"Course\",\"type\":\"integer\"},{\"name\":\"MED_ID\",\"type\":\"integer\"},{\"name\":\"Diag_Code\",\"type\":\"string\",\"extDtype\":\"str\"},{\"name\":\"Diag_Desc\",\"type\":\"string\",\"extDtype\":\"str\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[{\"index\":0,\"Pat_ID1\":1,\"SIT_ID\":11,\"Site_Name\":\"Test site\",\"PCP_ID\":21,\"Course\":1,\"MED_ID\":31,\"Diag_Code\":\"C61\",\"Diag_Desc\":\"Test diagnosis\"}]}"
+    },
+    "dss": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"SIT_ID\",\"type\":\"integer\"},{\"name\":\"Create_DtTm\",\"type\":\"datetime\"},{\"name\":\"RxFxUniformDoseInCcGE\",\"type\":\"number\"},{\"name\":\"RxFractions\",\"type\":\"integer\"},{\"name\":\"RxTotalDoseInCcGE\",\"type\":\"number\"},{\"name\":\"RxFxUniformDoseIncGray\",\"type\":\"number\"},{\"name\":\"RxTotalDoseIncGray\",\"type\":\"number\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[{\"index\":0,\"Pat_ID1\":1,\"SIT_ID\":11,\"Create_DtTm\":\"2024-03-01T08:00:00.000\",\"RxFxUniformDoseInCcGE\":200.0,\"RxFractions\":5,\"RxTotalDoseInCcGE\":1000.0,\"RxFxUniformDoseIncGray\":200.0,\"RxTotalDoseIncGray\":1000.0}]}"
+    },
+    "cc_charges": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"Proc_DtTm\",\"type\":\"datetime\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[{\"index\":0,\"Pat_ID1\":1,\"Proc_DtTm\":\"2024-03-08T09:00:00.000\"}]}"
+    },
+    "dose_history": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"SIT_ID\",\"type\":\"integer\"},{\"name\":\"PCI_ID\",\"type\":\"integer\"},{\"name\":\"PTC_ID\",\"type\":\"integer\"},{\"name\":\"Fractions_Tx\",\"type\":\"integer\"},{\"name\":\"Fx_Number_InEffect\",\"type\":\"integer\"},{\"name\":\"Tx_DtTm\",\"type\":\"datetime\"},{\"name\":\"Last_Name\",\"type\":\"string\",\"extDtype\":\"str\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[{\"index\":0,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":100,\"PTC_ID\":100,\"Fractions_Tx\":1,\"Fx_Number_InEffect\":1,\"Tx_DtTm\":\"2024-03-04T09:00:00.000\",\"Last_Name\":\"TEST1\"},{\"index\":1,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":101,\"PTC_ID\":101,\"Fractions_Tx\":1,\"Fx_Number_InEffect\":2,\"Tx_DtTm\":\"2024-03-05T09:00:00.000\",\"Last_Name\":\"TEST1\"},{\"index\":2,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":102,\"PTC_ID\":102,\"Fractions_Tx\":1,\"Fx_Number_InEffect\":3,\"Tx_DtTm\":\"2024-03-06T09:00:00.000\",\"Last_Name\":\"TEST1\"},{\"index\":3,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":103,\"PTC_ID\":103,\"Fractions_Tx\":1,\"Fx_Number_InEffect\":4,\"Tx_DtTm\":\"2024-03-07T09:00:00.000\",\"Last_Name\":\"TEST1\"},{\"index\":4,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":104,\"PTC_ID\":104,\"Fractions_Tx\":1,\"Fx_Number_InEffect\":5,\"Tx_DtTm\":\"2024-03-08T09:00:00.000\",\"Last_Name\":\"TEST1\"}]}"
+    },
+    "calendar": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"SIT_ID\",\"type\":\"integer\"},{\"name\":\"PCI_ID\",\"type\":\"integer\"},{\"name\":\"PTC_ID\",\"type\":\"integer\"},{\"name\":\"Due_DtTm\",\"type\":\"datetime\"},{\"name\":\"Act_DtTm\",\"type\":\"datetime\"},{\"name\":\"Status_Enum\",\"type\":\"integer\"},{\"name\":\"Seq\",\"type\":\"integer\"},{\"name\":\"Last_Name\",\"type\":\"string\",\"extDtype\":\"str\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[{\"index\":0,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":100,\"PTC_ID\":100,\"Due_DtTm\":\"2024-03-04T09:00:00.000\",\"Act_DtTm\":\"2024-03-04T09:00:00.000\",\"Status_Enum\":0,\"Seq\":1,\"Last_Name\":\"TEST1\"},{\"index\":1,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":101,\"PTC_ID\":101,\"Due_DtTm\":\"2024-03-05T09:00:00.000\",\"Act_DtTm\":\"2024-03-05T09:00:00.000\",\"Status_Enum\":0,\"Seq\":1,\"Last_Name\":\"TEST1\"},{\"index\":2,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":102,\"PTC_ID\":102,\"Due_DtTm\":\"2024-03-06T09:00:00.000\",\"Act_DtTm\":\"2024-03-06T09:00:00.000\",\"Status_Enum\":0,\"Seq\":1,\"Last_Name\":\"TEST1\"},{\"index\":3,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":103,\"PTC_ID\":103,\"Due_DtTm\":\"2024-03-07T09:00:00.000\",\"Act_DtTm\":\"2024-03-07T09:00:00.000\",\"Status_Enum\":0,\"Seq\":1,\"Last_Name\":\"TEST1\"},{\"index\":4,\"Pat_ID1\":1,\"SIT_ID\":11,\"PCI_ID\":104,\"PTC_ID\":104,\"Due_DtTm\":\"2024-03-08T09:00:00.000\",\"Act_DtTm\":\"2024-03-08T09:00:00.000\",\"Status_Enum\":0,\"Seq\":1,\"Last_Name\":\"TEST1\"}]}"
+    },
+    "qcls": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"Description\",\"type\":\"string\"},{\"name\":\"Complete\",\"type\":\"integer\"},{\"name\":\"Act_DtTm\",\"type\":\"datetime\"},{\"name\":\"Due_DtTm\",\"type\":\"datetime\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[]}"
+    },
+    "cc_notes": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"Create_DtTm\",\"type\":\"datetime\"},{\"name\":\"Subject\",\"type\":\"string\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[{\"index\":0,\"Pat_ID1\":1,\"Create_DtTm\":\"2024-03-05T11:00:00.000\",\"Subject\":\"Initial eChart Check\"}]}"
+    },
+    "schedule": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"App_DtTm\",\"type\":\"datetime\"},{\"name\":\"Last_Name\",\"type\":\"string\",\"extDtype\":\"str\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[{\"index\":0,\"Pat_ID1\":1,\"App_DtTm\":\"2024-03-04T09:00:00.000\",\"Last_Name\":\"TEST1\"},{\"index\":1,\"Pat_ID1\":1,\"App_DtTm\":\"2024-03-05T09:00:00.000\",\"Last_Name\":\"TEST1\"},{\"index\":2,\"Pat_ID1\":1,\"App_DtTm\":\"2024-03-06T09:00:00.000\",\"Last_Name\":\"TEST1\"},{\"index\":3,\"Pat_ID1\":1,\"App_DtTm\":\"2024-03-07T09:00:00.000\",\"Last_Name\":\"TEST1\"},{\"index\":4,\"Pat_ID1\":1,\"App_DtTm\":\"2024-03-08T09:00:00.000\",\"Last_Name\":\"TEST1\"}]}"
+    },
+    "patients": {
+      "table": "{\"schema\":{\"fields\":[{\"name\":\"index\",\"type\":\"integer\"},{\"name\":\"Pat_ID1\",\"type\":\"integer\"},{\"name\":\"Last_Name\",\"type\":\"string\",\"extDtype\":\"str\"},{\"name\":\"First_Name\",\"type\":\"string\",\"extDtype\":\"str\"},{\"name\":\"IDB\",\"type\":\"string\",\"extDtype\":\"str\"}],\"primaryKey\":[\"index\"],\"pandas_version\":\"1.4.0\"},\"data\":[{\"index\":0,\"Pat_ID1\":1,\"Last_Name\":\"Pat 1\",\"First_Name\":\"\",\"IDB\":\"1\"}]}"
+    },
+    "now": "2024-03-18 12:00:00"
+  },
+  "row_data": [
+    {
+      "tx_time": 100000,
+      "room": "TEST1",
+      "name": "Pat 1",
+      "mrn": "1",
+      "site_name": "Test site",
+      "rx": "200 cGy x 5 = 1000 cGy",
+      "n_fxs_txd": "5/5",
+      "last_fx_txd_dt": "2024-03-08",
+      "pending_qcls": "",
+      "n_fxs_since_last_cc": 3,
+      "icc_completion_dt": "2024-03-05",
+      "last_wcc_completion_dt": "2024-03-05",
+      "n_wcc_completed": "1/1",
+      "fcc_completion_dt": null,
+      "allowed_cc_charges": "1/1",
+      "tx_time__tip": "",
+      "tx_time__sev": "",
+      "room__tip": "",
+      "room__sev": "",
+      "name__tip": "",
+      "name__sev": "",
+      "mrn__tip": "",
+      "mrn__sev": "",
+      "site_name__tip": "",
+      "site_name__sev": "",
+      "rx__tip": "",
+      "rx__sev": "",
+      "n_fxs_txd__tip": "",
+      "n_fxs_txd__sev": "",
+      "icc_completion_dt__tip": "",
+      "icc_completion_dt__sev": "",
+      "last_fx_txd_dt__tip": "",
+      "last_fx_txd_dt__sev": "",
+      "last_wcc_completion_dt__tip": "",
+      "last_wcc_completion_dt__sev": "",
+      "n_fxs_since_last_cc__tip": "",
+      "n_fxs_since_last_cc__sev": "",
+      "pending_qcls__tip": "",
+      "pending_qcls__sev": "",
+      "n_wcc_completed__tip": "",
+      "n_wcc_completed__sev": "",
+      "fcc_completion_dt__tip": "<b>Errors</b><ul><li>A FCC was missed.</li></ul>",
+      "fcc_completion_dt__sev": "e",
+      "allowed_cc_charges__tip": "",
+      "allowed_cc_charges__sev": "",
+      "alert": "orange",
+      "tx_time_label": "Site Complete",
+      "__errors": [
+        "A FCC was missed."
+      ],
+      "__warnings": [],
+      "__notifications": [],
+      "__sites": [
+        {
+          "dx": "Test diagnosis",
+          "course": "1",
+          "site": "Test site",
+          "rx": "200 cGy x 5 = 1000 cGy",
+          "location": "TEST1",
+          "status": "Complete",
+          "date": "2024-03-04",
+          "current": true
+        }
+      ],
+      "__rowkey": "1|21|Test site|TEST1"
+    }
+  ]
+}

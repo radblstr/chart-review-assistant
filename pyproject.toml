@@ -1,0 +1,32 @@
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'
+
+[project]
+name = 'chart-review-assistant'
+description = 'Physics chart-check audit dashboard for a Mosaiq radiotherapy department'
+readme = 'README.md'
+requires-python = '>=3.12,<3.14'
+license = 'Apache-2.0'
+authors = [{ name = 'Alex Egan' }]
+dynamic = ['version']
+dependencies = [
+    'dash==4.2.0',
+    'dash_ag_grid==35.2.0',
+    'numpy==2.3.2',
+    'pandas==3.0.2',
+    'pyodbc==5.3.0',
+    'SQLAlchemy==2.0.50',
+    'pywebview==6.2.1',
+    'pythonnet==3.1.0',
+    'clr_loader==0.3.1',
+]
+
+[project.optional-dependencies]
+test = ['pytest']
+
+[tool.hatch.version]
+path = 'chart_review_assistant/__init__.py'
+
+[tool.hatch.build.targets.wheel]
+packages = ['chart_review_assistant']

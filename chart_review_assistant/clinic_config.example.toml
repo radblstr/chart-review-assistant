@@ -1,0 +1,87 @@
+# Copy this file to clinic_config.toml in the app data directory and fill in your clinic's values.
+# clinic_config.toml is distributed out of band (clinic share) and is never committed to the repo.
+# It layers on top of the code defaults. Settings edits never write this file: they are saved to
+# user_config.toml and override the values here. Settings -> Load Clinic Config replaces it with a
+# picked file. Keys are grouped by whether the Settings dialog can edit them; "Fixed" keys can only
+# be set in this file. Settings -> Save Clinic Config opens a save dialog (default name
+# clinic_config.saved.toml) and writes this file with the current overrides applied, for handing
+# out as a new baseline.
+
+[general]
+# Settings-editable:
+refresh_seconds = 60
+# Whether the Pending QCLs column is shown on the board
+track_cc_qcls = true
+# Fixed (not shown in Settings; edit here):
+# MRNs to hide from the board, as strings, e.g. ["12345"]
+skip_mrns = []
+# Feedback log file and bug-report capture dir (blank = code defaults under the data dir; a blank
+# feedback_file uses the CRA_FEEDBACK_FILE environment variable first when set)
+feedback_file = ""
+bug_report_dir = ""
+
+# --- Mosaiq database customizations ---
+# These keys map the app's database pulls onto your clinic's Mosaiq conventions. The defaults
+# match the clinic the app was written for; verify each against your own database during
+# commissioning. A wrong value does not raise an error: the affected findings silently go
+# missing or misreport.
+
+# QCL task descriptions shown in the Pending QCLs column, matched exactly as they read in Mosaiq
+# (QCLTask.Description, case and spacing included), as a list of strings. Only that column uses
+# them: ICC/WCC/FCC findings come from chart-check notes and report regardless.
+# Blank = the column stays empty and a warning banner is shown.
+qcl_task_types = []
+
+# Mosaiq Ident field that holds your MRN: one of IDA, IDB, IDC, IDD, IDE, IDF. It fills the
+# board's MRN column and is the field skip_mrns matches against. Blank or any other value falls
+# back to IDB with a log warning. Wrong field = the MRN column shows another ID or is blank.
+mrn_field = "IDB"
+
+# Charge code(s) billed for the weekly chart check (CPT.CPT_Code), as one string or a list of
+# strings, e.g. "12345" or ["12345", "12345A"]. A charge matching any listed code counts.
+# Blank = the charge findings are skipped and a warning banner is shown.
+cc_cpt_code = ""
+
+# Note types (Notes.Note_Type, integers) that record a physics chart check. Every ICC, WCC and FCC
+# finding is computed from these notes. Default [50] is the eChart Check note. List more than one
+# if your clinic records chart checks under several types. Wrong or blank = no chart-check notes
+# are found, so every check reads as due or missed.
+cc_note_types = [50]
+
+# Schedule.Activity values excluded as holds, as SQL LIKE patterns (% = any characters,
+# _ = any one character). Held appointments are not counted as scheduled fractions and do not
+# put a patient on the board.
+# Default excludes activities starting with HLD or HOLD, and DONOTSCHED. Blank = nothing is
+# excluded, so holds count as scheduled fractions.
+hold_activities = ["HLD%", "HOLD%", "DONOTSCHED"]
+
+# One [[machines]] block per treatment room (Settings-editable: label, room, active, enabled_checks,
+# icc_missed_fx, sbrt_fx_dose_cgy, sbrt_missed_fx, icc_counts_as_wcc). Add up to 8.
+# active = true marks a machine as shown on the board (absent = true); activation is by this flag,
+# not list order.
+# room must equal the machine's Mosaiq staff name (Staff.Last_Name, trailing spaces ignored).
+[[machines]]
+label = "Room 1"
+room = "ROOM1"
+active = true
+enabled_checks = [
+    "icc_due",
+    "sbrt_icc_due",
+    "icc_missed",
+    "wcc_due",
+    "wcc_missed",
+    "wcc_next_fx",
+    "wcc_overdue",
+    "fcc_due",
+    "fcc_missed",
+    "cc_too_many",
+    "cc_too_few",
+]
+# Treated fraction at or after which an ICC is missed (SBRT courses use sbrt_missed_fx instead)
+icc_missed_fx = 6
+# Per-fraction RBE dose (cGy) at or above which a site is flagged SBRT
+sbrt_fx_dose_cgy = 500
+# Treated fraction at or after which an SBRT course's ICC is missed
+sbrt_missed_fx = 3
+# Whether an on-time initial chart check counts as the course's first weekly chart check
+icc_counts_as_wcc = true

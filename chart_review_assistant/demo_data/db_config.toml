@@ -1,0 +1,7 @@
+# Demo mode's dummy database config. Demo mode reads and writes this file in place of the live
+# db_config.toml; the board runs on demo.db, so these values are never used to connect.
+
+[database]
+host = ""
+port = 1433
+database = ""

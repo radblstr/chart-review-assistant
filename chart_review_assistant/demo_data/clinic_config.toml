@@ -1,0 +1,39 @@
+[general]
+qcl_task_types = ["Initial Physics Check", "Weekly Physics Check", "Final Physics Check"]
+cc_cpt_code = "DEMOCC"
+
+[[machines]]
+label = "Linac A"
+room = "LINAC_A"
+active = true
+enabled_checks = [
+    "icc_due",
+    "sbrt_icc_due",
+    "icc_missed",
+    "wcc_due",
+    "wcc_missed",
+    "wcc_next_fx",
+    "wcc_overdue",
+    "fcc_due",
+    "fcc_missed",
+    "cc_too_many",
+    "cc_too_few",
+]
+
+[[machines]]
+label = "Proton B"
+room = "PROTON_B"
+active = true
+enabled_checks = [
+    "icc_due",
+    "sbrt_icc_due",
+    "icc_missed",
+    "wcc_due",
+    "wcc_missed",
+    "wcc_next_fx",
+    "wcc_overdue",
+    "fcc_due",
+    "fcc_missed",
+    "cc_too_many",
+    "cc_too_few",
+]

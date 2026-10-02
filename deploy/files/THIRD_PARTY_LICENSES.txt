@@ -1,0 +1,9 @@
+Third-party software redistributed with the Physics Chart Review Assistant installer
+====================================================================================
+
+The installer bundles a Python 3.12 runtime (the uv-managed CPython build) and the Python packages
+the app depends on, all under the python\ folder of the install directory. Each carries its own
+license:
+
+- Python: python\LICENSE.txt
+- Each package: python\Lib\site-packages\<package>-<version>.dist-info\

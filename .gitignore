@@ -1,0 +1,46 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.whl
+
+# Local scratch / experiments
+scratch/
+.playwright-mcp/
+
+# Per-user runtime files (inside the package dir in dev; under CRA_DATA_DIR in deploy)
+chart_review_assistant/user_config.toml
+chart_review_assistant/app_state.json
+chart_review_assistant/app_state.deid.json
+chart_review_assistant/logs/
+chart_review_assistant/demo_data/user_config.toml
+chart_review_assistant/demo_data/app_state.json
+chart_review_assistant/demo_data/app_state.deid.json
+
+# Site config (distributed out of band; the example templates are tracked). The .tmp is
+# save_db_config's atomic-write staging file.
+chart_review_assistant/db_config.toml
+chart_review_assistant/db_config.toml.tmp
+chart_review_assistant/clinic_config.toml
+chart_review_assistant/clinic_config.saved.toml
+chart_review_assistant/demo_data/clinic_config.saved.toml
+
+# PHI-adjacent runtime artifacts (never committed). The generated case directories under
+# chart_review_assistant/tests/snapshots are the shipped test corpus and ARE committed.
+chart_review_assistant/bug_reports/
+
+# OS / editor cruft
+Thumbs.db
+~$*
+~WRL*.tmp
+.vscode/
+.idea/

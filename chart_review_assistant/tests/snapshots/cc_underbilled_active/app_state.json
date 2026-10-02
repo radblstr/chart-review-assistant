@@ -1,0 +1,10 @@
+{
+  "locations": [
+    "TEST1"
+  ],
+  "weeks": null,
+  "direction": "surrounding",
+  "custom_start": "2024-02-26",
+  "custom_end": "2024-04-05",
+  "now": "2024-03-13 12:00:00"
+}

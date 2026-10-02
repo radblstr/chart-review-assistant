@@ -1,0 +1,13 @@
+[general]
+qcl_task_types = []
+cc_cpt_code = "TESTCC"
+
+[[machines]]
+label = "Test 1"
+room = "TEST1"
+active = true
+
+[[machines]]
+label = "Test 2"
+room = "TEST2"
+active = true
