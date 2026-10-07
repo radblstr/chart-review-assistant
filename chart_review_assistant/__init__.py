@@ -16,7 +16,7 @@ Mosaiq database connection.
   CRA_LOG_LEVEL.
 """
 
-__version__ = '0.1.0a2'
+__version__ = '0.1.0a3'
 
 import logging
 import os

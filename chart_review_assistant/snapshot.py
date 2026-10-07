@@ -10,15 +10,9 @@ These are created by user initiated UI bug reports and by the test-corpus genera
 (tests/make_snapshots.py). A test case is a self-contained directory: the baseline json, the mock
 Mosaiq DB built from it, clinic_config.toml, and the state file. tests/test_snapshots.py replays
 each case through the real pull and compares against the baseline json.
-
-deid_pull de-identifies a live pull for deid mode: surrogate ids and names, canonical site labels
-(generic_site), and dates shifted back by a per-process whole-week offset (session_delta).
 """
 
-import hashlib
 import json
-import random
-import re
 import sqlite3
 from io import StringIO
 from pathlib import Path
@@ -26,29 +20,6 @@ from pathlib import Path
 import pandas as pd
 
 from chart_review_assistant import config
-
-WEEKS_BACK_MIN = 100
-WEEKS_BACK_MAX = 200
-
-# Process-stable deid date shift, chosen once by session_delta so every poll and the header rewind
-# by the same amount
-_session_delta = None
-
-
-def session_delta():
-    """Return the process-stable deid date shift.
-
-    Chosen once (a random whole-week offset in WEEKS_BACK_MIN..WEEKS_BACK_MAX) and reused, so the
-    shifted board and the header window agree and dates do not jump between refreshes
-
-    Returns:
-        pd.Timedelta: Negative whole-week offset
-    """
-    global _session_delta
-    if _session_delta is None:
-        _session_delta = pd.Timedelta(days=-7 * random.randint(WEEKS_BACK_MIN, WEEKS_BACK_MAX))
-    return _session_delta
-
 
 # Regression snapshot case directories live under tests/snapshots, one per scenario (committed;
 # the shipped test corpus).
@@ -85,186 +56,6 @@ def write_snapshot(out_dir, db_pull, row_data, snapshot_id, stamp=True):
     path = out_dir / f'{stem}.json'
     path.write_text(json.dumps(out, indent=2, default=str), encoding='utf-8')
     return path
-
-
-# Raw Site_Name -> canonical deid label. Ordered most-specific first so disambiguating entries win
-# (Craniospinal before Spine/Brain, Breast/CW before Lymph Nodes, cervical spine before Cervix).
-# Each value is a list of case-insensitive regexes; an entry matches when any pattern is found in
-# the name, so a canonical is only assigned from text physically present in the label.
-SITE_PATTERNS = {
-    'Craniospinal': [r'craniospinal', r'\bcsi\b'],
-    'Head and Neck': [
-        r'\bh\s*&?\s*n\b', r'head.?neck', r'\bneck\b', r'oropharyn', r'\bopx\b',
-        r'nasopharyn', r'nasoph', r'hypopharyn', r'\blaryn', r'glottis', r'tonsil',
-        r'\btongue\b', r'parotid', r'salivary', r'oral\s*cavity', r'\bthyroid\b',
-        r'skull\s*base', r'\bskbs\b', r'\bbos\b', r'sinus', r'sinonasal', r'\bsino',
-        r'ethmoid', r'sphenoid', r'maxillary', r'palate', r'clivus', r'\borbit',
-    ],
-    'Breast/CW': [
-        r'\bbreast', r'mastectomy', r'lumpectomy', r'\bapbi\b', r'chest\s*wall',
-        r'\bcw\b', r'supraclav', r'\bscv\b', r'axilla',
-    ],
-    'Spine': [
-        r'\bspine\b', r'\bspinal\b', r'vertebra', r'thoracic', r'lumbar',
-        r'cervical\s*spine', r'chordoma',
-    ],
-    'Brain': [
-        r'\bbrain\b', r'whole\s*brain', r'\bwbrt\b', r'\bwb\b', r'\bsrs\b', r'\bglioma\b',
-        r'\bgbm\b', r'cerebell', r'frontal', r'parietal', r'occipital', r'temporal',
-        r'pineal', r'suprasellar', r'pituitary', r'intracran',
-    ],
-    'Lung': [r'\blung', r'nsclc', r'\bsclc\b', r'\blobe\b', r'pulmonary', r'hilum'],
-    'Esophagus': [r'esophag', r'\beso', r'\bgej\b'],
-    'Mediastinum': [r'mediastin'],
-    'Prostate': [r'\bprost'],
-    'Bladder': [r'bladder'],
-    'Rectum': [r'rectum', r'rectal'],
-    'Anus': [r'\banus\b', r'\banal\b'],
-    'Cervix': [r'cervix', r'cervical(?!\s*spine)'],
-    'Uterus': [r'uterus', r'uterine', r'endometri'],
-    'Ovary': [r'ovary', r'ovarian'],
-    'Vulva': [r'vulva', r'vagina'],
-    'Pancreas': [r'pancrea'],
-    'Liver': [r'\bliver', r'hepatic', r'\bhcc\b'],
-    'Stomach': [r'stomach', r'gastric'],
-    'Kidney': [r'kidney', r'renal'],
-    'Adrenal': [r'adrenal'],
-    'Bowel': [r'\bbowel\b', r'\bcolon', r'sigmoid'],
-    'Skin': [r'\bskin\b', r'\bbcc\b', r'\bscc\b', r'melanoma', r'cutaneous'],
-    'Sarcoma': [r'sarcoma', r'\bsarc', r'\bewing\b', r'\basps\b'],
-    'Ocular': [r'\beye\b'],
-    'Extremity': [
-        r'extremit', r'\barm\b', r'\bleg\b', r'thigh', r'\bhand\b', r'\bfoot\b',
-        r'\bknee\b', r'\bshoulder\b', r'\b[rl][lu]e\b',
-    ],
-    'Lymph Nodes': [
-        r'lymph', r'\bnodal\b', r'\bnode', r'\bln\b', r'\blns\b', r'inguinal',
-        r'\bgroin\b', r'iliac',
-    ],
-    'Bone': [
-        r'\bbone', r'\brib\b', r'femur', r'humerus', r'sacrum', r'sternum', r'calvarium',
-        r'ilium', r'pubis', r'\bhip\b', r'\bskull\b',
-    ],
-    'Pelvis': [r'pelvi'],
-    'Abdomen': [r'abdom'],
-}
-
-
-def generic_site(site_name):
-    """Map a raw site name to a canonical SITE_PATTERNS label, or 'Other' when nothing matches.
-
-    Entries are tried most-specific first; the first entry with any regex found in the name wins.
-
-    Args:
-        site_name (str): Raw Site_Name value
-
-    Returns:
-        str: Canonical site label, or 'Other'
-    """
-    name = str(site_name)
-    for canon, pats in SITE_PATTERNS.items():
-        if any(re.search(p, name, re.I) for p in pats):
-            return canon
-    return 'Other'
-
-
-def deid_pull(db_pull):
-    """De-identify a db_pull and shift every date back by a random number of whole weeks
-
-    The weeks fall in WEEKS_BACK_MIN..WEEKS_BACK_MAX; weekday and time-of-day are preserved, so the
-    audit outcome is invariant. The offset is chosen once per process (session_delta) and applied
-    to every frame.
-
-    Surrogate maps are built from the pull's own ids so a repeated id maps consistently across
-    every frame. What changes:
-
-      - Pat_ID1          -> a same-digit-count hash of the real id (pat_map)
-      - SIT_ID, PCP_ID   -> a same-digit-count hash of the real id (key_map)
-      - Notes Subject    -> a check token ('Initial eChart Check'/'Weekly eChart Check')
-      - patients frame   -> surrogate labels ('Pat <sur>', blank first name, IDB '<sur>'), no
-                            real names or MRNs remain
-      - Site_Name        -> a canonical SITE_PATTERNS label, or 'Other'
-      - *_DtTm columns and now -> shifted back by the random number of whole weeks
-
-    What passes through untouched:
-
-      - session/field ids (PCI_ID, PTC_ID) and plan keys (MED_ID, Course): internal row links,
-        not patient identifiers
-      - room / machine Last_Name, diagnosis (Diag_Code, Diag_Desc), and prescription: not
-        identifiers
-
-    Args:
-        db_pull (dict[str, pd.DataFrame | object]): A flat whole-board or single-patient pull
-
-    Returns:
-        dict[str, pd.DataFrame | object]: The de-identified pull. The input is not mutated.
-    """
-    delta = session_delta()
-
-    def _hash_id(v):
-        """Hash an id to a stable surrogate integer with the same digit count as the real id
-
-        Deterministic across runs, unlike the built-in hash
-        """
-        s = str(int(v))
-        lo = 10 ** (len(s) - 1)
-        h = int(hashlib.sha256(s.encode()).hexdigest(), 16)
-        return lo + h % (10 ** len(s) - lo)
-
-    def _frame_vals(col):
-        """Collect the non-null values of column `col` across every DataFrame in the pull."""
-        vals = set()
-        for v in db_pull.values():
-            if isinstance(v, pd.DataFrame) and col in v.columns:
-                vals.update(x for x in v[col].tolist() if pd.notna(x))
-        return vals
-
-    pat_map = {pid: _hash_id(pid) for pid in _frame_vals('Pat_ID1')}
-    key_vals = sorted(_frame_vals('SIT_ID') | _frame_vals('PCP_ID'))
-    key_map = {v: _hash_id(v) for v in key_vals}
-
-    def _deid_frame(df):
-        """Return a copy of one pull DataFrame with its identifier, subject, site and date columns
-        de-identified via the surrogate maps, generic_site and the delta shift.
-        """
-        df = df.copy()
-        for col in df.columns:
-            if col == 'Pat_ID1':
-                df[col] = df[col].map(lambda v: pat_map.get(v, v))
-            elif col in ('SIT_ID', 'PCP_ID'):
-                df[col] = df[col].map(lambda v: key_map.get(v, v) if pd.notna(v) else v)
-            elif col == 'Subject':
-                df[col] = df[col].map(
-                    lambda v: 'Initial eChart Check' if 'initial' in str(v).lower()
-                    else 'Weekly eChart Check')
-            elif col == 'Site_Name':
-                df[col] = df[col].map(generic_site)
-            elif col.endswith('_DtTm'):
-                df[col] = pd.to_datetime(df[col], errors='coerce') + delta
-        return df
-
-    def _deid_patients(df):
-        """Return a copy of the patients frame with surrogate ids and 'Pat <sur>' labels: no real
-        name or MRN remains. Handled apart from _deid_frame because Last_Name is a room column
-        in the other frames.
-        """
-        df = _deid_frame(df)
-        df['Last_Name'] = df['Pat_ID1'].map(lambda v: f'Pat {v}')
-        df['First_Name'] = ''
-        df['IDB'] = df['Pat_ID1'].map(str)
-        return df
-
-    out_pull = {}
-    for k, v in db_pull.items():
-        if k == 'patients':
-            out_pull[k] = _deid_patients(v)
-        elif isinstance(v, pd.DataFrame):
-            out_pull[k] = _deid_frame(v)
-        elif k == 'now':
-            out_pull[k] = pd.Timestamp(v) + delta if v is not None else v
-        else:
-            out_pull[k] = v
-    return out_pull
 
 
 def strip_session_keys(rows):
@@ -379,8 +170,8 @@ def build_snapshot_db(snapshot_path, locations, cfg):
     patients = frames.get('patients', pd.DataFrame(
         columns=['Pat_ID1', 'Last_Name', 'First_Name', 'IDB']))
     sites = frames.get('sites', pd.DataFrame(
-        columns=['Pat_ID1', 'SIT_ID', 'Site_Name', 'PCP_ID', 'Course', 'MED_ID',
-                 'Diag_Code', 'Diag_Desc']))
+        columns=['Pat_ID1', 'SIT_ID', 'Site_Name', 'PCP_ID', 'Dose_Tx', 'Dose_Ttl', 'Fractions',
+                 'IsDoseInCcGE', 'Course', 'MED_ID', 'Diag_Code', 'Diag_Desc']))
     schedule = frames.get('schedule', pd.DataFrame(
         columns=['Pat_ID1', 'App_DtTm', 'Last_Name']))
     calendar = frames.get('calendar', pd.DataFrame(
@@ -444,6 +235,10 @@ def build_snapshot_db(snapshot_path, locations, cfg):
             SIT_SET_ID=sites['SIT_ID'],
             Site_Name=sites['Site_Name'],
             PCP_ID=sites['PCP_ID'],
+            Dose_Tx=sites['Dose_Tx'],
+            Dose_Ttl=sites['Dose_Ttl'],
+            Fractions=sites['Fractions'],
+            IsDoseInCcGE=sites['IsDoseInCcGE'],
             Version=0)),
         PatCPlan=pd.DataFrame(dict(
             PCP_ID=plans['PCP_ID'],
@@ -456,9 +251,6 @@ def build_snapshot_db(snapshot_path, locations, cfg):
             TPG_ID=diags['MED_ID'],
             Diag_Code=diags['Diag_Code'],
             Description=diags['Diag_Desc'])),
-        DoseSummarySnapshot=frames.get('dss', pd.DataFrame(
-            columns=['Pat_ID1', 'SIT_ID', 'Create_DtTm', 'RxFxUniformDoseInCcGE', 'RxFractions',
-                     'RxTotalDoseInCcGE', 'RxFxUniformDoseIncGray', 'RxTotalDoseIncGray'])),
         QCLTask=pd.DataFrame(dict(
             TSK_ID=list(tsk_ids.values()),
             Description=list(tsk_ids.keys()))),

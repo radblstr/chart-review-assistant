@@ -110,7 +110,7 @@ def make_pull(now, site_specs, notes=(), charges=(), cfg=None):
         site_specs (list[dict]): One per site: sit (id), pcp (course key), name, rx
             ((fx_dose_cgy, n_fxs, total_cgy)), tx (list[pd.Timestamp] treated), cal
             (list[pd.Timestamp] scheduled incl. treated), rooms (str | list[str] per cal slot),
-            rbe (bool, default True; False writes 0 to the RBE dose columns, as for photons).
+            rbe (bool, default True; False writes 0 to IsDoseInCcGE, as for photons).
         notes (tuple[tuple[pd.Timestamp, str], ...]): CC notes as (Create_DtTm, Subject).
         charges (tuple[pd.Timestamp, ...]): CC charge Proc_DtTm values.
         cfg (dict[str, dict | list[dict]] | None): Case config; defaults to make_cfg().
@@ -121,30 +121,25 @@ def make_pull(now, site_specs, notes=(), charges=(), cfg=None):
             over the code defaults, for pinned_config when the courses are built.
     """
     cfg = cfg if cfg is not None else make_cfg()
-    sites_rows, dss_rows, dh_rows, cal_rows, sched_rows = [], [], [], [], []
+    sites_rows, dh_rows, cal_rows, sched_rows = [], [], [], []
     next_id = 100
     for spec in site_specs:
         rooms = spec.get('rooms', ROOM)
+        fx_dose, n_fxs, total = spec['rx']
+        rbe = spec.get('rbe', True)
         sites_rows.append(dict(
             Pat_ID1=1,
             SIT_ID=spec['sit'],
             Site_Name=spec['name'],
             PCP_ID=spec['pcp'],
+            Dose_Tx=float(fx_dose),
+            Dose_Ttl=float(total),
+            Fractions=int(n_fxs),
+            IsDoseInCcGE=int(rbe),
             Course=1,
             MED_ID=31,
             Diag_Code='C61',
             Diag_Desc='Test diagnosis'))
-        fx_dose, n_fxs, total = spec['rx']
-        rbe = spec.get('rbe', True)
-        dss_rows.append(dict(
-            Pat_ID1=1,
-            SIT_ID=spec['sit'],
-            Create_DtTm=pd.Timestamp('2024-03-01 08:00:00'),
-            RxFxUniformDoseInCcGE=float(fx_dose) if rbe else 0.0,
-            RxFractions=int(n_fxs),
-            RxTotalDoseInCcGE=float(total) if rbe else 0.0,
-            RxFxUniformDoseIncGray=float(fx_dose),
-            RxTotalDoseIncGray=float(total)))
         treated = set(spec['tx'])
         for i, ts in enumerate(spec['cal']):
             room = rooms[i] if isinstance(rooms, list) else rooms
@@ -174,7 +169,6 @@ def make_pull(now, site_specs, notes=(), charges=(), cfg=None):
     merged = config._merge(config.default_config(), cfg)
     db_pull = dict(
         sites=pd.DataFrame(sites_rows),
-        dss=pd.DataFrame(dss_rows),
         cc_charges=pd.DataFrame(dict(
             Pat_ID1=pd.Series([1] * len(charges), dtype='int64'),
             Proc_DtTm=pd.Series(list(charges), dtype='datetime64[ns]'))),

@@ -20,11 +20,9 @@ scratch/
 # Per-user runtime files (inside the package dir in dev; under CRA_DATA_DIR in deploy)
 chart_review_assistant/user_config.toml
 chart_review_assistant/app_state.json
-chart_review_assistant/app_state.deid.json
 chart_review_assistant/logs/
 chart_review_assistant/demo_data/user_config.toml
 chart_review_assistant/demo_data/app_state.json
-chart_review_assistant/demo_data/app_state.deid.json
 
 # Site config (distributed out of band; the example templates are tracked). The .tmp is
 # save_db_config's atomic-write staging file.

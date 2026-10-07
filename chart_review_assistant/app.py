@@ -49,12 +49,6 @@ if DEMO_MODE:
     config.USER_CONFIG_FILE = str(demo_data.DEMO_DIR / 'user_config.toml')
     config.DB_CONFIG_FILE = str(demo_data.DEMO_DIR / 'db_config.toml')
 
-# Deid mode: the poll de-identifies the live DB pull in memory and pins the clock to its rewound
-# NOW. Enabled by CRA_DEID_MODE=1 (the dev-only launch_deid_mode.bat) or by setting
-# DEID_MODE_OVERRIDE True here in code; either one turns it on.
-DEID_MODE_OVERRIDE = False
-DEID_MODE = DEID_MODE_OVERRIDE or os.environ.get('CRA_DEID_MODE') == '1'
-
 # Settings-dialog sections in display order, mapping each check category to its section title. A
 # check joins a section through its category key in CHECKS; this is the sole declaration of the
 # sections' titles. UI-only -- no audit reads it.
@@ -74,10 +68,9 @@ def active_rooms(cfg):
     return [m['room'] for m in config.active_machines(cfg) if m.get('room')]
 
 
-# Demo mode keeps its UI state in demo_data/; deid mode keeps its own file beside the live one, so
-# a deid session (weeks-only window, surrogate row keys) never overwrites the live user's state.
+# Demo mode keeps its UI state in demo_data/
 STATE_FILE = os.path.join(demo_data.DEMO_DIR if DEMO_MODE else config.data_dir(),
-                          'app_state.deid.json' if DEID_MODE else 'app_state.json')
+                          'app_state.json')
 DEFAULT_STATE = dict(
     locations=active_rooms(config.load_config()),
     weeks=WEEKS_DEFAULT,
@@ -229,7 +222,10 @@ BOX_TITLE_STYLE = dict(fontSize='11px', fontWeight='600', color='#555', padding=
 def create_app():
     """Build the Dash app: set the HTML shell, assign the layout, and register callbacks."""
     configure_logging()
-    app = Dash(__name__, title='Physics Chart Review Assistant')
+
+    # suppress_callback_exceptions: the Open in Mosaiq button exists only inside the rendered
+    # info pane, not in the initial layout
+    app = Dash(__name__, title='Physics Chart Review Assistant', suppress_callback_exceptions=True)
     app.index_string = '''<!DOCTYPE html>
 <html>
     <head>{%metas%}<title>{%title%}</title>{%favicon%}{%css%}
@@ -326,7 +322,7 @@ def create_layout():
     color_green = '#d4f4dd'
     color_orange = '#ffd9b3'
     color_yellow = '#fffde7'
-    color_deid = '#ff6a00'
+    color_demo = '#ff6a00'
 
     # Titled box (fieldset) whose legend breaks the top border
     box = dict(
@@ -366,28 +362,17 @@ def create_layout():
     # Tx Time cell displays the status label; the field itself holds a numeric sort key.
     tx_time_fmt = dict(function='params.data.tx_time_label')
 
-    # Sort pending QCLs by date (ISO-prefixed string), pushing blanks (no pending QCL) to bottom.
-    pending_cmp = {'function': r'''
-        (!params.valueA && !params.valueB) ? 0
-            : !params.valueA ? 1
-            : !params.valueB ? -1
-            : params.valueA < params.valueB ? -1
-            : (params.valueA > params.valueB ? 1 : 0)
-    '''}
-
-    # Sort count and 'x/y' columns numerically (numerator, then denominator), pushing blanks and
-    # N/A to the bottom.
-    frac_cmp = {'function': r'''
-        (function(a, b) {
-            var pa = String(a == null ? '' : a).split('/').map(Number);
-            var pb = String(b == null ? '' : b).split('/').map(Number);
-            var na = a == null || a === '' || isNaN(pa[0]);
-            var nb = b == null || b === '' || isNaN(pb[0]);
-            if (na || nb) return na === nb ? 0 : (na ? 1 : -1);
-            return (pa[0] - pb[0]) || ((pa[1] || 0) - (pb[1] || 0));
-        })(params.valueA, params.valueB)
-    '''}
+    # Column comparators are real functions in assets/dashAgGridFunctions.js (dash-ag-grid's
+    # expression walker cannot run statement-bodied function strings). Pending QCLs sort by date
+    # with blanks last; count and 'x/y' columns sort numerically with blanks and N/A last; ICC/FCC
+    # columns put rows with a due check (info notification) first, then completion date.
+    pending_cmp = dict(function='pendingCmp')
+    frac_cmp = dict(function='fracCmp')
     frac_keys = ('n_fxs_txd', 'n_fxs_since_last_cc', 'n_wcc_completed', 'allowed_cc_charges')
+    cc_cmp = {
+        key: dict(function=f'ccCmp("{key}")')
+        for key in ('icc_completion_dt', 'fcc_completion_dt')
+    }
     column_defs = []
     cfg = config.load_config()
     refresh_seconds = cfg['general']['refresh_seconds']
@@ -414,6 +399,8 @@ def create_layout():
             d['valueFormatter'] = tx_time_fmt
         elif key in frac_keys:
             d['comparator'] = frac_cmp
+        elif key in cc_cmp:
+            d['comparator'] = cc_cmp[key]
         d['cellStyle'] = dict(textAlign='center')
         d['headerClass'] = 'cr-center-header'
         d['cellRenderer'] = ('CopyCell' if key == 'mrn'
@@ -518,12 +505,10 @@ def create_layout():
     win_start, win_end = win_start.isoformat(), win_end.isoformat()
     cs, ce = s.get('custom_start'), s.get('custom_end')
 
-    # Deid mode stays on the weeks/direction window so the rewound header cannot fall out of sync
-    # with a stale custom range saved in real (unshifted) dates.
-    if not DEID_MODE and cs and ce and (cs, ce) != (win_start, win_end):
+    if cs and ce and (cs, ce) != (win_start, win_end):
         weeks_value, picker_start, picker_end = None, cs, ce
     else:
-        weeks_value = (s['weeks'] or WEEKS_DEFAULT) if DEID_MODE else s['weeks']
+        weeks_value = s['weeks']
         picker_start, picker_end = win_start, win_end
 
     # Restore the saved sort via AG Grid initialState (applied once at grid
@@ -677,25 +662,23 @@ def create_layout():
                 )),
             ], style=dict(box, flexShrink='0')),
 
-            # Deid/demo mode indicator: persistent, bright-orange, sits in the gap before the
-            # utility cluster (which is pushed right by margin-left auto).
+            # Demo mode indicator: persistent, bright-orange, sits in the gap before the utility
+            # cluster (which is pushed right by margin-left auto).
             *([html.Div([
-                html.Div('Demo Mode' if DEMO_MODE else 'De-identify Mode', style=dict(
+                html.Div('Demo Mode', style=dict(
                     fontSize='13px',
                     fontWeight='700',
-                    color=color_deid,
+                    color=color_demo,
                 )),
                 html.Div(
-                    (f'Demo data. Clock pinned to {demo_data.DEMO_NOW:%Y-%m-%d}.'
-                     if DEMO_MODE else
-                     'Patient data de-identified. Dates rewound by a random number of weeks.'),
-                    style=dict(fontSize='10px', color=color_deid)),
+                    f'Demo data. Clock pinned to {demo_data.DEMO_NOW:%Y-%m-%d}.',
+                    style=dict(fontSize='10px', color=color_demo)),
             ], style=dict(
                 display='flex',
                 flexDirection='column',
                 justifyContent='center',
                 flexShrink='0',
-            ))] if DEID_MODE or DEMO_MODE else []),
+            ))] if DEMO_MODE else []),
 
             # Hidden proxy: the visible 'Clear Checks' button lives in the Hide column header
             # (HideHeader) and clicks this to run the clear-checks callback.
@@ -918,7 +901,7 @@ def build_feedback_modal(modal_id, title, text_id, status_id, upload_id, attach_
     body += [
         dcc.Textarea(
             id=text_id,
-            placeholder='Describe the bug or suggestion...',
+            placeholder=f"Describe the {modal_id.split('_')[0]}...",
             style=dict(width='100%', height='120px', fontSize='13px', fontFamily='inherit',
                        boxSizing='border-box', resize='vertical'),
         ),
@@ -1983,11 +1966,28 @@ def register_callbacks(app):
                                fontSize='13px',
                            ))
 
+        # Open in Mosaiq button beside the identity; omitted without an MRN
+        head = [html.Span(ident, style=dict(
+            fontWeight='600',
+            fontSize='14px',
+        ))]
+        if u:
+            head += [
+                html.Button('Open in Mosaiq', id='open_mosaiq_btn', n_clicks=0,
+                            title='Open this patient in Mosaiq', style=dict(
+                        fontSize='12px',
+                        padding='1px 8px',
+                        cursor='pointer',
+                    )),
+                html.Span(id='open_mosaiq_status'),
+            ]
+
         # Assemble the panel: identity, sites table, then findings grouped by level.
         return html.Div([
-            html.Div(ident, style=dict(
-                fontWeight='600',
-                fontSize='14px',
+            html.Div(head, style=dict(
+                display='flex',
+                alignItems='center',
+                gap='8px',
                 marginBottom='4px',
             )),
             section('Sites', site_body),
@@ -1995,6 +1995,24 @@ def register_callbacks(app):
             section('Warnings', warn_list(r.get('__warnings') or [])),
             section('Errors', warn_list(r.get('__errors') or [])),
         ])
+
+    @app.callback(
+        Output('open_mosaiq_status', 'children'),
+        Input('open_mosaiq_btn', 'n_clicks'),
+        State('table', 'selectedRows'),
+        prevent_initial_call=True,
+    )
+    def open_in_mosaiq(n_clicks, selected):
+        """Open the selected row's patient in the running Mosaiq client."""
+        from chart_review_assistant import mosaiq_control
+        if not n_clicks or not selected:
+            return no_update
+        try:
+            err = mosaiq_control.open_patient(selected[0].get('mrn', ''))
+        except Exception:
+            logger.exception('open in Mosaiq failed')
+            err = 'Could not open the patient in Mosaiq -- check the log.'
+        return html.Span(err, style=ERROR_TEXT_STYLE) if err else ''
 
 
 def rebuild_rows(location_checklist, weeks_dropdown, direction_dropdown, custom_start, custom_end,
@@ -2079,27 +2097,11 @@ def load_rows(location_checklist, weeks_dropdown, direction_dropdown, custom_sta
             state['now'] = demo_data.DEMO_NOW
 
         # Soft refresh (settings change): rebuild rows from the last pull with no query, so a
-        # toggle applies without re-hitting Mosaiq or (in deid mode) re-shifting the
-        # already-shifted dates.
+        # toggle applies without re-hitting Mosaiq.
         if soft and db_pull:
-            if DEID_MODE:
-                state['now'] = pd.Timestamp(db_pull['now'])
             courses = courses_from_pull(db_pull)
         else:
-            # The live board resolves names normally; in deid mode the scrubbed pull below is the
-            # single gate, replacing the queried names with surrogates before courses are built.
-            # The pull stays local until it is scrubbed: the server is threaded, and a bug report
-            # or soft refresh reading the global db_pull meanwhile must never see the identified
-            # pull.
-            courses, pull = query_db(state)
-
-            # Deid mode: de-identify the live pull in memory and pin the clock to its rewound NOW
-            # so the window rewinds with the shifted sites.
-            if DEID_MODE and pull:
-                pull = snapshot.deid_pull(pull)
-                state['now'] = pd.Timestamp(pull['now'])
-                courses = courses_from_pull(pull)
-            db_pull = pull
+            courses, db_pull = query_db(state)
 
         window = selection_window(state)
         row_data = build_table(courses, window, location_checklist)
@@ -2123,9 +2125,9 @@ def load_rows(location_checklist, weeks_dropdown, direction_dropdown, custom_sta
             logger.info('poll empty diag sites=%d caldts=%d inwin=%d roomok=%d locs=%s',
                         len(sites), caldts, inwin, roomok, location_checklist)
 
-        # Deid/demo mode: the header carries a persistent mode indicator, so leave the top warning
+        # Demo mode: the header carries a persistent mode indicator, so leave the top warning
         # banner clear and skip the live clinic-config warning (irrelevant here).
-        if DEID_MODE or DEMO_MODE:
+        if DEMO_MODE:
             return row_data, selected, f'Last updated: {ts}', '', WARNING_HIDDEN
 
         # Non-blocking warning: the board still renders, but the Pending QCLs column stays empty
@@ -2591,18 +2593,14 @@ def load_state():
 def board_today():
     """The board's display-date 'today'
 
-    In demo mode the pinned demo date; in deid mode the live date rewound by the session's stable
-    deid delta, so the header window matches the shifted board; otherwise the real current date
+    In demo mode the pinned demo date; otherwise the real current date
 
     Returns:
         datetime.date: Display-date today.
     """
     if DEMO_MODE:
         return demo_data.DEMO_NOW.date()
-    today = datetime.date.today()
-    if DEID_MODE:
-        today = (pd.Timestamp(today) + snapshot.session_delta()).date()
-    return today
+    return datetime.date.today()
 
 
 def machine_check_specs():

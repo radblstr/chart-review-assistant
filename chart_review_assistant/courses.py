@@ -84,7 +84,7 @@ class Course:
         self.pat_id = pat_id
 
         # Display label from the patients frame (Patient/Ident rows of the scheduled-patients
-        # query; deid surrogates in deid mode); a placeholder covers a patient with no row.
+        # query); a placeholder covers a patient with no row.
         patients = db_pull['patients']
         if len(patients):
             p = patients.iloc[0]
@@ -97,7 +97,7 @@ class Course:
             self.mrn = ''
 
         # Per-room Settings thresholds, read from config at build time so every rebuild (live
-        # poll, soft refresh, deid) uses the current values.
+        # poll, soft refresh) uses the current values.
         cfg = config.load_config()
         self.thresholds = config.settings_thresholds_map(cfg)
 
@@ -385,14 +385,17 @@ class Site:
         site_name (str): Site name (table: Site, col: Site_Name)
         warnings (list[dict[str, str]]): CHECKS entries (id, label, field, level, message)
             flagged for the site
-        n_rx_fxs (int | float): Prescribed fractions, NaN when NULL (table: DoseSummarySnapshot,
-            col: RxFractions)
-        rx_fx_dose (float): Per-fraction physical dose (cGy) (table: DoseSummarySnapshot)
-        rx_fx_dose_rbe (float): Per-fraction RBE dose (cGy) (table: DoseSummarySnapshot)
-        rx_dose (float): Total physical dose (cGy) (table: DoseSummarySnapshot)
-        rx_dose_rbe (float): Total RBE dose (cGy) (table: DoseSummarySnapshot)
-        rx (str | None): Formatted Rx string, e.g. '200 cGy x 25 = 5000 cGy'; '' when the site
-            has no DSS snapshot, None when the Rx is incomplete
+        n_rx_fxs (int | float): Prescribed fractions, NaN when NULL (table: Site, col: Fractions)
+        rx_fx_dose (float): Per-fraction physical dose (cGy), 0 when IsDoseInCcGE (table: Site,
+            col: Dose_Tx)
+        rx_fx_dose_rbe (float): Per-fraction RBE dose (cGy), 0 unless IsDoseInCcGE (table: Site,
+            col: Dose_Tx)
+        rx_dose (float): Total physical dose (cGy), 0 when IsDoseInCcGE (table: Site,
+            col: Dose_Ttl)
+        rx_dose_rbe (float): Total RBE dose (cGy), 0 unless IsDoseInCcGE (table: Site,
+            col: Dose_Ttl)
+        rx (str | None): Formatted Rx string, e.g. '200 cGy x 25 = 5000 cGy'; None when the Rx is
+            incomplete
         tx_hst (pd.DataFrame): Treatment history (table: Dose_Hst)
         tx_hst_dts (list[pd.Timestamp]): tx_hst['Tx_DtTm'] as a list
         complete (bool): True when treated fractions equal prescribed fractions
@@ -419,9 +422,8 @@ class Site:
     def __init__(self, course, site, db_pull):
         """Build one dashboard row from a site record and the course's DB pull slice.
 
-        Extracts the current Rx from the latest dose-summary snapshot, the treated/scheduled
-        fraction times, room, pending QCLs and CC notes, then derives SBRT status and ICC
-        completion/missed timing. Leaves self.rx empty when the site has no snapshot.
+        Extracts the current Rx from the Site row, the treated/scheduled fraction times, room,
+        pending QCLs and CC notes, then derives SBRT status and ICC completion/missed timing.
 
         Args:
             course (Course): Parent course
@@ -431,24 +433,19 @@ class Site:
         self.course_n = course.course_n
         self.site_name = site['Site_Name']
 
-        # Slice for most recent dose summary snapshot (DSS) to extract the current site Rx. A site
-        # with no DSS snapshot has no Rx and is skipped by the caller.
-        dss = db_pull['dss'][db_pull['dss']['SIT_ID'] == site['SIT_ID']]
-        rx_rows = dss.sort_values('Create_DtTm').drop_duplicates('SIT_ID', keep='last')
-        if rx_rows.empty:
-            self.rx = ''
-            return
-        rx_row = rx_rows.iloc[0]
-
-        # A NULL Rx field (NaN, or None when the whole column is NULL) must not raise and blank the
-        # board: fractions become NaN for the pd.notna guards below, doses 0 so the RBE-or-physical
-        # fallbacks apply.
-        n_rx_fxs = rx_row['RxFractions']
+        # Current site Rx from the Site row. Dose_Tx/Dose_Ttl are RBE (CcGE) when IsDoseInCcGE is
+        # set, else physical; the other pair stays 0 so the RBE-or-physical fallbacks apply. A NULL
+        # Rx field (NaN, or None when the whole column is NULL) must not raise and blank the board:
+        # fractions become NaN for the pd.notna guards below, doses 0.
+        n_rx_fxs = site['Fractions']
         self.n_rx_fxs = int(n_rx_fxs) if pd.notna(n_rx_fxs) else float('nan')
-        self.rx_fx_dose = _dose(rx_row['RxFxUniformDoseIncGray'])
-        self.rx_fx_dose_rbe = _dose(rx_row['RxFxUniformDoseInCcGE'])
-        self.rx_dose = _dose(rx_row['RxTotalDoseIncGray'])
-        self.rx_dose_rbe = _dose(rx_row['RxTotalDoseInCcGE'])
+        fx_dose = _dose(site['Dose_Tx'])
+        dose = _dose(site['Dose_Ttl'])
+        rbe = site['IsDoseInCcGE'] == 1
+        self.rx_fx_dose = 0.0 if rbe else fx_dose
+        self.rx_fx_dose_rbe = fx_dose if rbe else 0.0
+        self.rx_dose = 0.0 if rbe else dose
+        self.rx_dose_rbe = dose if rbe else 0.0
 
         # Get formatted Rx string based on the prescription dose and fraction fields.
         self.rx = self.format_rx()
@@ -548,5 +545,5 @@ class Site:
 
 
 def _dose(v):
-    """A DSS dose field (cGy) as a float, 0.0 when NULL (NaN or None)"""
+    """A Site dose field (cGy) as a float, 0.0 when NULL (NaN or None)"""
     return 0.0 if pd.isna(v) else float(v)

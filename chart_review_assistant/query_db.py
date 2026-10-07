@@ -53,7 +53,6 @@ def query_db(state):
     # Run remaining pulls concurrently since they are independent of each other.
     with ThreadPoolExecutor(max_workers=8) as ex:
         sites = ex.submit(get_sites, pat_ids)
-        dss = ex.submit(get_dose_summary_snapshots, pat_ids)
         qcls = ex.submit(get_qcls, pat_ids)
         cc_charges = ex.submit(get_weekly_cc_charge_dates, pat_ids)
         dose_history = ex.submit(get_dose_history, pat_ids)
@@ -64,7 +63,6 @@ def query_db(state):
     db_pull = dict(
         patients=patients,
         sites=sites.result(),
-        dss=dss.result(),
         cc_charges=cc_charges.result(),
         dose_history=dose_history.result(),
         calendar=calendar.result(),
@@ -247,13 +245,16 @@ def get_sites(patient_ids):
         patient_ids (list[int]): Pat_ID1 values
 
     Returns:
-        pd.DataFrame: Columns [Pat_ID1, SIT_ID, Site_Name, PCP_ID, Course, MED_ID, Diag_Code,
-            Diag_Desc]. PCP_ID is the course grouping key; Course is the plan's course number
-            (not unique per patient); MED_ID/Diag_Code/Diag_Desc are the parent diagnosis
-            (Medical -> Topog), null when the plan has no linked diagnosis.
+        pd.DataFrame: Columns [Pat_ID1, SIT_ID, Site_Name, PCP_ID, Dose_Tx, Dose_Ttl, Fractions,
+            IsDoseInCcGE, Course, MED_ID, Diag_Code, Diag_Desc]. PCP_ID is the course grouping
+            key; Dose_Tx/Dose_Ttl are the prescribed fraction/total dose (cGy, CcGE when
+            IsDoseInCcGE is set); Course is the plan's course number (not unique per patient);
+            MED_ID/Diag_Code/Diag_Desc are the parent diagnosis (Medical -> Topog), null when the
+            plan has no linked diagnosis.
     """
     sql = f'''
         SELECT s.Pat_ID1, s.SIT_ID, s.Site_Name, s.PCP_ID,
+               s.Dose_Tx, s.Dose_Ttl, s.Fractions, s.IsDoseInCcGE,
                p.Course, p.MED_ID, t.Diag_Code, t.Description AS Diag_Desc
         FROM Site AS s
         LEFT JOIN PatCPlan AS p ON s.PCP_ID = p.PCP_ID
@@ -264,25 +265,6 @@ def get_sites(patient_ids):
           AND s.Version = 0
     '''
     return pd.read_sql(sql, get_engine())
-
-
-def get_dose_summary_snapshots(patient_ids):
-    """Dose summary snapshots (per-session Rx cache) for the given patients
-
-    Args:
-        patient_ids (list[int]): Pat_ID1 values
-
-    Returns:
-        pd.DataFrame: Columns [Pat_ID1, SIT_ID, Create_DtTm, RxFxUniformDoseInCcGE,
-            RxFractions, RxTotalDoseInCcGE, RxFxUniformDoseIncGray, RxTotalDoseIncGray]
-    """
-    sql = f'''
-        SELECT Pat_ID1, SIT_ID, Create_DtTm, RxFxUniformDoseInCcGE, RxFractions,
-               RxTotalDoseInCcGE, RxFxUniformDoseIncGray, RxTotalDoseIncGray
-        FROM DoseSummarySnapshot
-        WHERE Pat_ID1 IN ({', '.join(str(i) for i in patient_ids)})
-    '''
-    return pd.read_sql(sql, get_engine(), parse_dates=['Create_DtTm'])
 
 
 def get_qcls(patient_ids):

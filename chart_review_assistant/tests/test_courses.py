@@ -76,23 +76,27 @@ def test_lr_merge_counts_both_sides_for_icc_missed():
 
 
 def test_null_rx_fractions_does_not_raise():
-    """A DSS row with NULL RxFractions is skipped like any other incomplete Rx instead of raising.
+    """A Site row with NULL Fractions is skipped like any other incomplete Rx instead of raising.
 
     Raising would blank the board. courses.py Course.__init__ drops sites with a zeroed or absent
     Rx.
     """
     db_pull, _, _ = make_pull(SLOTS[0] + pd.Timedelta(hours=3), [simple_site(1)])
-    db_pull['dss']['RxFractions'] = pd.Series([float('nan')], dtype='float64')
+    db_pull['sites']['Fractions'] = pd.Series([float('nan')], dtype='float64')
     assert build_courses(db_pull, [1]) == []
 
 
 def test_all_null_dose_column_does_not_raise():
-    """An all-NULL dose column (object dtype of None) reads as 0 and falls back to the other dose.
-    """
+    """An all-NULL dose column (object dtype of None) reads as 0 and the site is skipped."""
     db_pull, _, _ = make_pull(SLOTS[0] + pd.Timedelta(hours=3), [simple_site(1)])
-    db_pull['dss']['RxFxUniformDoseInCcGE'] = pd.Series([None], dtype='object')
-    db_pull['dss']['RxTotalDoseInCcGE'] = pd.Series([None], dtype='object')
-    courses = build_courses(db_pull, [1])
-    site = courses[0].sites[0]
-    assert site.rx_fx_dose_rbe == 0.0
+    db_pull['sites']['Dose_Tx'] = pd.Series([None], dtype='object')
+    assert build_courses(db_pull, [1]) == []
+
+
+def test_physical_rx_when_not_ccge():
+    """IsDoseInCcGE unset reads Dose_Tx/Dose_Ttl as physical dose and leaves RBE at 0."""
+    db_pull, _, _ = make_pull(SLOTS[0] + pd.Timedelta(hours=3), [simple_site(1)])
+    db_pull['sites']['IsDoseInCcGE'] = 0
+    site = build_courses(db_pull, [1])[0].sites[0]
+    assert site.rx_fx_dose == 200.0 and site.rx_fx_dose_rbe == 0.0
     assert site.rx == '200 cGy x 15 = 3000 cGy'

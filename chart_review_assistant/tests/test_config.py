@@ -5,7 +5,7 @@ Unit tests for the layered config: _merge, load_config, active_machines, the set
 toml_text, and save_settings; one test per Settings control (general, location, each check,
 per-machine thresholds, room, and each database field); the settings_apply and db_settings_apply
 callbacks, driven with the dialog's control values; clinic_config_problem; the Save/Load config
-buttons; plus demo-mode and de-id state path isolation. Every test
+buttons; plus demo-mode state path isolation. Every test
 writes temp files only; the live clinic_config.toml, user_config.toml and db_config.toml are never
 written (tests that build the Dash app read the live files through app's import-time defaults).
 
@@ -851,27 +851,15 @@ def test_live_mode_uses_data_dir(tmp_path):
     assert paths['engine_db'] is None
 
 
-def test_deid_mode_uses_own_state_file(tmp_path):
-    """De-id mode reads the live config but keeps its UI state in app_state.deid.json.
-
-    This keeps a de-id session from overwriting the live user's saved state.
-    """
-    paths = _app_paths(tmp_path, demo=False, deid=True)
-    for key in ('clinic', 'user', 'db_config'):
-        assert Path(paths[key]).parent == tmp_path / 'data', key
-    assert Path(paths['state']) == tmp_path / 'data' / 'app_state.deid.json'
-
-
-def _app_paths(tmp_path, demo, deid=False):
+def _app_paths(tmp_path, demo):
     """Import app in a fresh interpreter and return its resolved config, state and DB paths.
 
-    The demo/de-id redirects run at import time, so a subprocess keeps them out of this test
-    session. CRA_DATA_DIR points the live data dir at a temp dir.
+    The demo redirects run at import time, so a subprocess keeps them out of this test session.
+    CRA_DATA_DIR points the live data dir at a temp dir.
 
     Args:
         tmp_path (Path): Temp dir; its data subdir is the data dir.
         demo (bool): Whether CRA_DEMO_MODE is set.
-        deid (bool): Whether CRA_DEID_MODE is set.
 
     Returns:
         dict[str, str | None]: Paths keyed clinic, user, db_config, state, engine_db (None when
@@ -880,14 +868,11 @@ def _app_paths(tmp_path, demo, deid=False):
     data = tmp_path / 'data'
     data.mkdir()
 
-    # Start from a clean mode: drop any demo/de-id flags inherited from the shell
+    # Start from a clean mode: drop a demo flag inherited from the shell
     env = dict(os.environ, CRA_DATA_DIR=str(data))
     env.pop('CRA_DEMO_MODE', None)
-    env.pop('CRA_DEID_MODE', None)
     if demo:
         env['CRA_DEMO_MODE'] = '1'
-    if deid:
-        env['CRA_DEID_MODE'] = '1'
 
     # Child script: import the app and print the paths it resolved as one JSON line
     code = '\n'.join([
