@@ -171,7 +171,8 @@ def build_snapshot_db(snapshot_path, locations, cfg):
         columns=['Pat_ID1', 'Last_Name', 'First_Name', 'IDB']))
     sites = frames.get('sites', pd.DataFrame(
         columns=['Pat_ID1', 'SIT_ID', 'Site_Name', 'PCP_ID', 'Dose_Tx', 'Dose_Ttl', 'Fractions',
-                 'IsDoseInCcGE', 'Course', 'MED_ID', 'Diag_Code', 'Diag_Desc']))
+                 'IsDoseInCcGE', 'Modality_Enum', 'BEDPerGray', 'Course', 'MED_ID', 'Diag_Code',
+                 'Diag_Desc']))
     schedule = frames.get('schedule', pd.DataFrame(
         columns=['Pat_ID1', 'App_DtTm', 'Last_Name']))
     calendar = frames.get('calendar', pd.DataFrame(
@@ -210,6 +211,7 @@ def build_snapshot_db(snapshot_path, locations, cfg):
             Last_Name=missing['Last_Name']))], ignore_index=True)
 
     plans = sites.drop_duplicates('PCP_ID')
+    beds = sites[sites['BEDPerGray'].notna()].drop_duplicates('Modality_Enum')
     diags = plans[plans['MED_ID'].notna()].drop_duplicates('MED_ID')
     qcl_tasks = sorted(x for x in qcls['Description'].unique().tolist() if pd.notna(x))
     tsk_ids = {desc: 5001 + i for i, desc in enumerate(qcl_tasks)}
@@ -239,7 +241,11 @@ def build_snapshot_db(snapshot_path, locations, cfg):
             Dose_Ttl=sites['Dose_Ttl'],
             Fractions=sites['Fractions'],
             IsDoseInCcGE=sites['IsDoseInCcGE'],
+            Modality_Enum=sites['Modality_Enum'],
             Version=0)),
+        BioEffDose=pd.DataFrame(dict(
+            Modality_Enum=beds['Modality_Enum'],
+            BEDPerGray=beds['BEDPerGray'])),
         PatCPlan=pd.DataFrame(dict(
             PCP_ID=plans['PCP_ID'],
             Course=plans['Course'],

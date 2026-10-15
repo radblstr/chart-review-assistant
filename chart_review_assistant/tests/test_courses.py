@@ -97,6 +97,18 @@ def test_physical_rx_when_not_ccge():
     """IsDoseInCcGE unset reads Dose_Tx/Dose_Ttl as physical dose and leaves RBE at 0."""
     db_pull, _, _ = make_pull(SLOTS[0] + pd.Timedelta(hours=3), [simple_site(1)])
     db_pull['sites']['IsDoseInCcGE'] = 0
+    db_pull['sites']['Modality_Enum'] = 0
+    db_pull['sites']['BEDPerGray'] = float('nan')
     site = build_courses(db_pull, [1])[0].sites[0]
     assert site.rx_fx_dose == 200.0 and site.rx_fx_dose_rbe == 0.0
     assert site.rx == '200 cGy x 15 = 3000 cGy'
+
+
+def test_proton_physical_rx_scaled_to_rbe():
+    """A proton site stored in physical dose shows RBE = physical x BEDPerGray."""
+    db_pull, _, _ = make_pull(SLOTS[0] + pd.Timedelta(hours=3), [simple_site(1)])
+    db_pull['sites']['IsDoseInCcGE'] = 0
+    site = build_courses(db_pull, [1])[0].sites[0]
+    assert site.rx_fx_dose == 200.0
+    assert site.rx_fx_dose_rbe == pytest.approx(220.0)
+    assert site.rx == '220 cGy x 15 = 3300 cGy'

@@ -110,7 +110,8 @@ def make_pull(now, site_specs, notes=(), charges=(), cfg=None):
         site_specs (list[dict]): One per site: sit (id), pcp (course key), name, rx
             ((fx_dose_cgy, n_fxs, total_cgy)), tx (list[pd.Timestamp] treated), cal
             (list[pd.Timestamp] scheduled incl. treated), rooms (str | list[str] per cal slot),
-            rbe (bool, default True; False writes 0 to IsDoseInCcGE, as for photons).
+            rbe (bool, default True: proton site with IsDoseInCcGE 1 and BEDPerGray 1.1; False
+            writes IsDoseInCcGE 0, Modality_Enum 0 and no BEDPerGray, as for photons).
         notes (tuple[tuple[pd.Timestamp, str], ...]): CC notes as (Create_DtTm, Subject).
         charges (tuple[pd.Timestamp, ...]): CC charge Proc_DtTm values.
         cfg (dict[str, dict | list[dict]] | None): Case config; defaults to make_cfg().
@@ -136,6 +137,8 @@ def make_pull(now, site_specs, notes=(), charges=(), cfg=None):
             Dose_Ttl=float(total),
             Fractions=int(n_fxs),
             IsDoseInCcGE=int(rbe),
+            Modality_Enum=int(rbe),
+            BEDPerGray=1.1 if rbe else float('nan'),
             Course=1,
             MED_ID=31,
             Diag_Code='C61',

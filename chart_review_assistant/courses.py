@@ -388,12 +388,14 @@ class Site:
         n_rx_fxs (int | float): Prescribed fractions, NaN when NULL (table: Site, col: Fractions)
         rx_fx_dose (float): Per-fraction physical dose (cGy), 0 when IsDoseInCcGE (table: Site,
             col: Dose_Tx)
-        rx_fx_dose_rbe (float): Per-fraction RBE dose (cGy), 0 unless IsDoseInCcGE (table: Site,
-            col: Dose_Tx)
+        rx_fx_dose_rbe (float): Per-fraction RBE dose (cGy), Dose_Tx x BEDPerGray when not
+            IsDoseInCcGE, 0 when the modality has no BEDPerGray (table: Site, col: Dose_Tx;
+            table: BioEffDose, col: BEDPerGray)
         rx_dose (float): Total physical dose (cGy), 0 when IsDoseInCcGE (table: Site,
             col: Dose_Ttl)
-        rx_dose_rbe (float): Total RBE dose (cGy), 0 unless IsDoseInCcGE (table: Site,
-            col: Dose_Ttl)
+        rx_dose_rbe (float): Total RBE dose (cGy), Dose_Ttl x BEDPerGray when not IsDoseInCcGE,
+            0 when the modality has no BEDPerGray (table: Site, col: Dose_Ttl; table: BioEffDose,
+            col: BEDPerGray)
         rx (str | None): Formatted Rx string, e.g. '200 cGy x 25 = 5000 cGy'; None when the Rx is
             incomplete
         tx_hst (pd.DataFrame): Treatment history (table: Dose_Hst)
@@ -434,18 +436,20 @@ class Site:
         self.site_name = site['Site_Name']
 
         # Current site Rx from the Site row. Dose_Tx/Dose_Ttl are RBE (CcGE) when IsDoseInCcGE is
-        # set, else physical; the other pair stays 0 so the RBE-or-physical fallbacks apply. A NULL
-        # Rx field (NaN, or None when the whole column is NULL) must not raise and blank the board:
-        # fractions become NaN for the pd.notna guards below, doses 0.
+        # set, else physical; physical doses get RBE = physical x BEDPerGray when the site's
+        # modality has one (protons), else the RBE pair stays 0 so the RBE-or-physical fallbacks
+        # apply. A NULL Rx field (NaN, or None when the whole column is NULL) must not raise and
+        # blank the board: fractions become NaN for the pd.notna guards below, doses 0.
         n_rx_fxs = site['Fractions']
         self.n_rx_fxs = int(n_rx_fxs) if pd.notna(n_rx_fxs) else float('nan')
         fx_dose = _dose(site['Dose_Tx'])
         dose = _dose(site['Dose_Ttl'])
         rbe = site['IsDoseInCcGE'] == 1
+        bed_per_gray = _dose(site['BEDPerGray'])
         self.rx_fx_dose = 0.0 if rbe else fx_dose
-        self.rx_fx_dose_rbe = fx_dose if rbe else 0.0
+        self.rx_fx_dose_rbe = fx_dose if rbe else fx_dose * bed_per_gray
         self.rx_dose = 0.0 if rbe else dose
-        self.rx_dose_rbe = dose if rbe else 0.0
+        self.rx_dose_rbe = dose if rbe else dose * bed_per_gray
 
         # Get formatted Rx string based on the prescription dose and fraction fields.
         self.rx = self.format_rx()

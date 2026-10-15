@@ -246,17 +246,19 @@ def get_sites(patient_ids):
 
     Returns:
         pd.DataFrame: Columns [Pat_ID1, SIT_ID, Site_Name, PCP_ID, Dose_Tx, Dose_Ttl, Fractions,
-            IsDoseInCcGE, Course, MED_ID, Diag_Code, Diag_Desc]. PCP_ID is the course grouping
-            key; Dose_Tx/Dose_Ttl are the prescribed fraction/total dose (cGy, CcGE when
-            IsDoseInCcGE is set); Course is the plan's course number (not unique per patient);
-            MED_ID/Diag_Code/Diag_Desc are the parent diagnosis (Medical -> Topog), null when the
-            plan has no linked diagnosis.
+            IsDoseInCcGE, Modality_Enum, BEDPerGray, Course, MED_ID, Diag_Code, Diag_Desc].
+            PCP_ID is the course grouping key; Dose_Tx/Dose_Ttl are the prescribed fraction/total
+            dose (cGy, CcGE when IsDoseInCcGE is set); BEDPerGray is the clinic's biologic dose
+            per physical Gray for the site's modality (BioEffDose), null when none is set; Course
+            is the plan's course number (not unique per patient); MED_ID/Diag_Code/Diag_Desc are
+            the parent diagnosis (Medical -> Topog), null when the plan has no linked diagnosis.
     """
     sql = f'''
         SELECT s.Pat_ID1, s.SIT_ID, s.Site_Name, s.PCP_ID,
-               s.Dose_Tx, s.Dose_Ttl, s.Fractions, s.IsDoseInCcGE,
+               s.Dose_Tx, s.Dose_Ttl, s.Fractions, s.IsDoseInCcGE, s.Modality_Enum, b.BEDPerGray,
                p.Course, p.MED_ID, t.Diag_Code, t.Description AS Diag_Desc
         FROM Site AS s
+        LEFT JOIN BioEffDose AS b ON s.Modality_Enum = b.Modality_Enum
         LEFT JOIN PatCPlan AS p ON s.PCP_ID = p.PCP_ID
         LEFT JOIN Medical AS m ON p.MED_ID = m.MED_ID
         LEFT JOIN Topog AS t ON m.TPG_ID = t.TPG_ID

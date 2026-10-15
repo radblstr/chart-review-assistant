@@ -36,7 +36,8 @@ def _norm(frame):
     """Normalize a frame for comparison.
 
     Common datetime resolution (the SQLite round trip yields microseconds, the table-schema
-    baseline nanoseconds), rows sorted by all columns, index dropped
+    baseline nanoseconds), rows sorted by all columns, nulls as None (an all-NULL column reads
+    back from SQL as None, from the baseline as NaN), index dropped
     """
     frame = frame.copy()
     for col in frame.columns:
@@ -44,6 +45,7 @@ def _norm(frame):
             frame[col] = frame[col].astype('datetime64[ns]')
     if len(frame):
         frame = frame.sort_values(list(frame.columns))
+    frame = frame.astype(object).where(frame.notna(), None)
     return frame.reset_index(drop=True)
 
 
